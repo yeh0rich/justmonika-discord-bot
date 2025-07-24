@@ -206,10 +206,13 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
+        asyncio.run(main())
     except RuntimeError as e:
+        # For environments like Replit/Jupyter that already have a running loop
         if "already running" in str(e):
-            asyncio.ensure_future(main())
+            import nest_asyncio
+            nest_asyncio.apply()
+            loop = asyncio.get_running_loop()
+            loop.create_task(main())
         else:
             raise e 

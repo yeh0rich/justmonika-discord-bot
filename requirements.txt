@@ -1,1 +1,2 @@
 discord.py>=2.3.2 
+nest_asyncio>=1.5.8 
