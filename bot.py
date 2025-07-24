@@ -216,3 +216,12 @@ if __name__ == "__main__":
             loop.create_task(main())
         else:
             raise e 
+
+@bot.event
+async def on_ready():
+    print(f"Bot is ready! Logged in as {bot.user}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s) to Discord.")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}") 
