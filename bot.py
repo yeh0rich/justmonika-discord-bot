@@ -5,6 +5,8 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 
+print("Starting JustMonika.exe bot...")
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
