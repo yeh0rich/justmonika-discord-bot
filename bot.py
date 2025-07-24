@@ -197,10 +197,19 @@ async def setup(bot):
     await bot.add_cog(Glitch(bot))
 
 # --- Main Entrypoint ---
-if __name__ == "__main__" or True:
-    async def main():
-        async with bot:
-            await bot.load_extension("bot")
-            await bot.start(os.environ["TOKEN"])
-    import asyncio
-    asyncio.run(main()) 
+import asyncio
+
+async def main():
+    async with bot:
+        await bot.load_extension("bot")
+        await bot.start(os.environ["TOKEN"])
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    except RuntimeError as e:
+        if "already running" in str(e):
+            asyncio.ensure_future(main())
+        else:
+            raise e 
