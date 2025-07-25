@@ -6,6 +6,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 
 print("Starting JustMonika.exe bot...")
+print("TOKEN:", os.environ.get("TOKEN"))
 
 intents = discord.Intents.default()
 intents.message_content = True
