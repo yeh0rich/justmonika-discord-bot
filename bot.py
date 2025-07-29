@@ -2,12 +2,14 @@ import os
 import random
 import asyncio
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord import app_commands
+from dotenv import load_dotenv
 
-print("Starting JustMonika.exe bot...")
-print("TOKEN:", os.environ.get("TOKEN"))
+# Load environment variables from .env file
+load_dotenv()
 
+# Bot setup
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -15,11 +17,12 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- Glitch Event Functions ---
+# Glitch event functions
 async def glitch_channel_name(guild: discord.Guild):
+    """Temporarily rename a channel to '𝔾𝕝𝕚𝕥𝕔𝕙𝕖𝕕-' + original name"""
     channel = random.choice([c for c in guild.text_channels if c.permissions_for(guild.me).manage_channels])
     original_name = channel.name
-    glitched_name = "𝔾𝕝𝕚𝕥𝕔𝕙𝕖𝕕-" + ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=4))
+    glitched_name = f"𝔾𝕝𝕚𝕥𝕔𝕙𝕖𝕕-{original_name}"
     try:
         await channel.edit(name=glitched_name)
         await asyncio.sleep(random.randint(10, 30))  # Glitch lasts 10-30s
@@ -28,6 +31,7 @@ async def glitch_channel_name(guild: discord.Guild):
         pass
 
 async def glitch_ping_user(guild: discord.Guild):
+    """Randomly ping a user with a creepy message"""
     members = [m for m in guild.members if not m.bot and m.status != discord.Status.offline]
     if not members:
         return
@@ -46,6 +50,7 @@ async def glitch_ping_user(guild: discord.Guild):
         pass
 
 async def glitch_typing_event(guild: discord.Guild):
+    """Bot types then sends a corrupted message"""
     channel = random.choice([c for c in guild.text_channels if c.permissions_for(guild.me).send_messages])
     corrupted_msgs = [
         ".chr file corrupted...",
@@ -61,170 +66,138 @@ async def glitch_typing_event(guild: discord.Guild):
     except Exception:
         pass
 
+async def glitch_nickname(guild: discord.Guild):
+    """Temporarily change a random member's nickname to a glitched 'JustMonika.'"""
+    candidates = [m for m in guild.members if not m.bot and m != guild.me and guild.me.top_role > m.top_role and m.nick != "JustMonika."]
+    if not candidates:
+        return
+    user = random.choice(candidates)
+    glitched_nick = "JυѕтMσηιкα."  # Unicode-glitched JustMonika.
+    try:
+        original_nick = user.nick
+        await user.edit(nick=glitched_nick)
+        await asyncio.sleep(random.randint(30, 60))
+        await user.edit(nick=original_nick)
+    except Exception:
+        pass
+
 async def trigger_random_glitch(guild: discord.Guild):
-    glitch_funcs = [glitch_channel_name, glitch_ping_user, glitch_typing_event]
+    """Trigger a random glitch event"""
+    glitch_funcs = [glitch_channel_name, glitch_ping_user, glitch_typing_event, glitch_nickname]
     await random.choice(glitch_funcs)(guild)
 
-# --- Background Task for Rare Glitches ---
-@tasks.loop(seconds=3600)  # Check every hour
-async def rare_glitch_task():
-    await bot.wait_until_ready()
-    for guild in bot.guilds:
-        # 10% chance per hour per guild
-        if random.random() < 0.1:
-            await trigger_random_glitch(guild)
+# Simple test command
+@bot.tree.command(name="test", description="Test if the bot is working")
+async def test(interaction: discord.Interaction):
+    await interaction.response.send_message("JustMonika.exe is working! 🧠", ephemeral=True)
 
-# --- Slash Command Setup ---
-class Glitch(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        rare_glitch_task.start()
-
-    @app_commands.command(name="glitch", description="Trigger a random glitch event (admin only)")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def glitch(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        await trigger_random_glitch(interaction.guild)
-        await interaction.followup.send("Glitch event triggered!", ephemeral=True)
-
-    @glitch.error
-    async def glitch_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.errors.MissingPermissions):
-            await interaction.response.send_message("You need to be an admin to use this command.", ephemeral=True)
-        else:
-            await interaction.response.send_message("An error occurred.", ephemeral=True)
-
-    @app_commands.command(name="monikanick", description="Change someone's nickname to 'Just Monika.' (admin only)")
-    @app_commands.describe(user="The user to monikafy. If not set, picks a random member.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def monikanick(self, interaction: discord.Interaction, user: discord.Member = None):
-        await interaction.response.defer(ephemeral=True)
-        guild = interaction.guild
-        if user is None:
-            candidates = [m for m in guild.members if not m.bot and m != guild.me and m.top_role < guild.me.top_role]
-            if not candidates:
-                await interaction.followup.send("No valid members to monikafy!", ephemeral=True)
-                return
-            user = random.choice(candidates)
-        if user.bot or user == guild.me or user.top_role >= guild.me.top_role:
-            await interaction.followup.send("Cannot monikafy this user.", ephemeral=True)
-            return
-        try:
-            original_nick = user.nick
-            await user.edit(nick="Just Monika.")
-            await interaction.followup.send(f"{user.mention} is now Just Monika. (Will revert in 60s)", ephemeral=True)
-            await asyncio.sleep(60)
-            await user.edit(nick=original_nick)
-        except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to change that user's nickname.", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"An error occurred: {e}", ephemeral=True)
-    
-    @monikanick.error
-    async def monikanick_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.errors.MissingPermissions):
-            await interaction.response.send_message("You need to be an admin to use this command.", ephemeral=True)
-        else:
-            await interaction.response.send_message("An error occurred.", ephemeral=True)
-
-    @app_commands.command(name="fakedelete", description="Pretend to delete a channel, role, or file (admin only)")
-    @app_commands.describe(target="Channel, role, or file name to fake-delete.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def fakedelete(self, interaction: discord.Interaction, target: str):
-        await interaction.response.defer()
-        guild = interaction.guild
-        channel = None
-        role = None
-        # Try to resolve channel
-        if target.startswith("<#") and target.endswith(">"):
-            try:
-                channel_id = int(target[2:-1])
-                channel = guild.get_channel(channel_id)
-            except:
-                pass
-        # Try to resolve role
-        elif target.startswith("<@&") and target.endswith(">"):
-            try:
-                role_id = int(target[3:-1])
-                role = guild.get_role(role_id)
-            except:
-                pass
-        # Try to resolve by name
-        if not channel and not role:
-            channel = discord.utils.get(guild.text_channels, name=target.replace("#", ""))
-            role = discord.utils.get(guild.roles, name=target.replace("@", ""))
-        # Determine type
-        if channel:
-            display = f"#{channel.name}"
-        elif role:
-            display = f"@{role.name}"
-        else:
-            display = target
-        # Progress bar animation
-        progress_states = [
-            "[░░░░░░░░░░] 0%",
-            "[▓░░░░░░░░░] 10%",
-            "[▓▓░░░░░░░░] 20%",
-            "[▓▓▓░░░░░░░] 30%",
-            "[▓▓▓▓░░░░░░] 40%",
-            "[▓▓▓▓▓░░░░░] 50%",
-            "[▓▓▓▓▓▓░░░░] 60%",
-            "[▓▓▓▓▓▓▓░░░] 70%",
-            "[▓▓▓▓▓▓▓▓░░] 80%",
-            "[▓▓▓▓▓▓▓▓▓░] 90%",
-            "[▓▓▓▓▓▓▓▓▓▓] 100%"
-        ]
-        msg = await interaction.followup.send(f"Deleting {display}... {progress_states[0]}")
-        for state in progress_states[1:]:
-            await asyncio.sleep(random.uniform(0.3, 0.7))
-            await msg.edit(content=f"Deleting {display}... {state}")
-        # Glitchy ending
-        endings = [
-            f"Error: Unable to delete {display}. Reality is protected.",
-            f"{display} has been deleted. (just kidding!)",
-            f"[GLITCH] {display} not found.",
-            f"{display} has become corrupted...",
-            f"Monika: Did you really think I'd let you do that?"
-        ]
-        await asyncio.sleep(1)
-        await msg.edit(content=random.choice(endings))
-    
-    @fakedelete.error
-    async def fakedelete_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.errors.MissingPermissions):
-            await interaction.response.send_message("You need to be an admin to use this command.", ephemeral=True)
-        else:
-            await interaction.response.send_message("An error occurred.", ephemeral=True)
-
-async def setup(bot):
-    await bot.add_cog(Glitch(bot))
-
-# --- Main Entrypoint ---
-import asyncio
-
-async def main():
-    async with bot:
-        await bot.load_extension("bot")
-        await bot.start(os.environ["TOKEN"])
-
-if __name__ == "__main__":
+# Glitch command
+@bot.tree.command(name="glitch", description="Trigger a glitch event (admin only)")
+@app_commands.checks.has_permissions(administrator=True)
+async def glitch(interaction: discord.Interaction):
     try:
-        asyncio.run(main())
-    except RuntimeError as e:
-        # For environments like Replit/Jupyter that already have a running loop
-        if "already running" in str(e):
-            import nest_asyncio
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.create_task(main())
-        else:
-            raise e 
+        await interaction.response.send_message("𝔾𝕝𝕚𝕥𝕔𝕙 𝕖��𝕖𝕟𝕥 𝕥𝕣𝕚𝕘𝕘𝕖𝕕!", ephemeral=True)
+        
+        # Randomly choose a glitch event
+        import random
+        event = random.choice([
+            glitch_channel_name,
+            glitch_ping_user,
+            glitch_typing_event,
+            glitch_nickname
+        ])
+        
+        await event(interaction.guild)
+        
+    except Exception as e:
+        await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
 
+@glitch.error
+async def glitch_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message("You need to be an admin to use this command.", ephemeral=True)
+    else:
+        await interaction.response.send_message("An error occurred.", ephemeral=True)
+
+@bot.tree.command(name="monikanick", description="Change someone's nickname to 'Just Monika.' (admin only)")
+@app_commands.describe(user="The user to monikafy. If not set, picks a random member.")
+@app_commands.checks.has_permissions(administrator=True)
+async def monikanick(interaction: discord.Interaction, user: discord.Member = None):
+    await interaction.response.defer(ephemeral=True)
+    guild = interaction.guild
+    if user is None:
+        candidates = [m for m in guild.members if not m.bot]
+        if not candidates:
+            await interaction.followup.send("No valid members to monikafy!", ephemeral=True)
+            return
+        user = random.choice(candidates)
+    # Removed bot/self and role hierarchy checks for full testability
+    try:
+        original_nick = user.nick
+        await user.edit(nick="Just Monika.")
+        await interaction.followup.send(f"{user.mention} is now Just Monika. (Will revert in 60s)", ephemeral=True)
+        await asyncio.sleep(60)
+        await user.edit(nick=original_nick)
+    except discord.Forbidden:
+        await interaction.followup.send("I don't have permission to change that user's nickname.", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred: {e}", ephemeral=True)
+
+@monikanick.error
+async def monikanick_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message("You need to be an admin to use this command.", ephemeral=True)
+    else:
+        await interaction.response.send_message("An error occurred.", ephemeral=True)
+
+@bot.tree.command(name="monikasay", description="Make JM.exe say anything (admin only)")
+@app_commands.describe(message="The message for Monika to say.")
+@app_commands.checks.has_permissions(administrator=True)
+async def monikasay(interaction: discord.Interaction, message: str):
+    await interaction.response.defer(ephemeral=True)
+    try:
+        await interaction.channel.send(message)
+        await interaction.followup.send("Message sent as JM.exe!", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred: {e}", ephemeral=True)
+
+@monikasay.error
+async def monikasay_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message("You need to be an admin to use this command.", ephemeral=True)
+    else:
+        await interaction.response.send_message("An error occurred.", ephemeral=True)
+
+@bot.tree.command(name="monikadm", description="Send a DM as Monika to a user (admin only)")
+@app_commands.describe(user="The user to DM", message="The message to send")
+@app_commands.checks.has_permissions(administrator=True)
+async def monikadm(interaction: discord.Interaction, user: discord.Member, message: str):
+    try:
+        await user.send(message)
+        await interaction.response.send_message(f"✅ DM sent to {user.display_name}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(f"❌ Could not DM {user.display_name} (DMs closed or privacy settings).", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+# Bot events
 @bot.event
 async def on_ready():
     print(f"Bot is ready! Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
         print(f"Synced {len(synced)} command(s) to Discord.")
+        # Force global resync to clear out old command versions
+        await bot.tree.sync()
+        print("Forced global command resync.")
     except Exception as e:
-        print(f"Failed to sync commands: {e}") 
+        print(f"Failed to sync commands: {e}")
+
+# Main entrypoint
+if __name__ == "__main__":
+    print("Starting fresh JustMonika.exe bot...")
+    
+    try:
+        bot.run(os.getenv("TOKEN"))
+    except Exception as e:
+        print(f"Error starting bot: {e}") 
